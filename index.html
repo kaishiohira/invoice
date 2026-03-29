@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>請求書発行アプリ</title>
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+    font-size: 14px;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    min-height: 100vh;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+    font-size: 14px;
+  }
+
+  /* ===== OPERATION BAR ===== */
+  #op-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #1a56db;
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  #op-bar h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin-right: auto;
+    letter-spacing: 0.05em;
+  }
+
+  .op-btn {
+    padding: 7px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .op-btn:hover { opacity: 0.85; }
+
+  .btn-save   { background: #fff; color: #1a56db; }
+  .btn-load   { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+  .btn-print  { background: #22c55e; color: #fff; }
+
+  /* ===== INVOICE WRAPPER ===== */
+  #invoice-wrap {
+    max-width: 860px;
+    margin: 28px auto;
+    padding: 0 16px 40px;
+  }
+
+  /* ===== INVOICE PAPER ===== */
+  #invoice {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+    padding: 48px 52px;
+  }
+
+  /* ===== TITLE ROW ===== */
+  .invoice-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    border-bottom: 3px solid #1a56db;
+    padding-bottom: 18px;
+  }
+
+  .invoice-main-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: #1a1a2e;
+  }
+
+  .invoice-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: right;
+    min-width: 260px;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .meta-label {
+    font-size: 12px;
+    color: #1a56db;
+    font-weight: 600;
+    white-space: nowrap;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  /* ===== PARTIES SECTION ===== */
+  .parties {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+  }
+
+  .party-box {
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .party-box.client { background: #f8faff; border: 1px solid #dbeafe; }
+  .party-box.sender { background: #f9fafb; border: 1px solid #e5e7eb; text-align: right; }
+
+  .party-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #1a56db;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .client-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .honorific-select {
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 13px;
+    color: #374151;
+    background: #fff;
+  }
+
+  /* ===== SUBJECT / TOTAL BOX ===== */
+  .subject-total-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+  }
+
+  .subject-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .subject-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a56db;
+    white-space: nowrap;
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: #4b5563;
+    margin-bottom: 14px;
+  }
+
+  .total-display-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .grand-total-label {
+    font-size: 13px;
+    color: #1a56db;
+    font-weight: 700;
+  }
+
+  .grand-total-amount {
+    font-size: 26px;
+    font-weight: 700;
+    color: #1a56db;
+    letter-spacing: 0.02em;
+  }
+
+  .transfer-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .transfer-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1a56db;
+    white-space: nowrap;
+    padding-top: 2px;
+  }
+
+  /* ===== ITEMS TABLE ===== */
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a56db;
+    margin-bottom: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  #items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+
+  #items-table th {
+    background: #1a56db;
+    color: #fff;
+    font-weight: 600;
+    padding: 9px 8px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+  }
+
+  #items-table th:first-child { border-radius: 6px 0 0 0; }
+  #items-table th:last-child  { border-radius: 0 6px 0 0; }
+
+  #items-table td {
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 5px;
+    vertical-align: middle;
+  }
+
+  #items-table tbody tr:hover td { background: #f8faff; }
+
+  #items-table td:first-child { text-align: center; color: #9ca3af; font-size: 12px; width: 36px; }
+
+  .col-no      { width: 36px; }
+  .col-item    { min-width: 160px; }
+  .col-qty     { width: 70px; }
+  .col-price   { width: 100px; }
+  .col-taxtype { width: 80px; }
+  .col-taxrate { width: 70px; }
+  .col-amount  { width: 100px; text-align: right; }
+  .col-del     { width: 36px; text-align: center; }
+
+  .td-amount {
+    text-align: right;
+    font-weight: 600;
+    padding-right: 8px;
+    color: #1a1a2e;
+  }
+
+  /* ===== INPUT STYLES ===== */
+  .inv-input {
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 5px 8px;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: #fff;
+    color: #1a1a2e;
+  }
+
+  .inv-input:focus {
+    outline: none;
+    border-color: #1a56db;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+  }
+
+  input[type="number"].inv-input { text-align: right; }
+
+  .inv-select {
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 5px 4px;
+    width: 100%;
+    background: #fff;
+    cursor: pointer;
+    color: #1a1a2e;
+  }
+
+  .inv-select:focus {
+    outline: none;
+    border-color: #1a56db;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+  }
+
+  .inv-select:disabled { background: #f3f4f6; color: #9ca3af; }
+
+  .inv-textarea {
+    border: 1px solid #d1d5db;
+    border-radius: 5px;
+    padding: 6px 8px;
+    resize: vertical;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background: #fff;
+    color: #1a1a2e;
+  }
+
+  .inv-textarea:focus {
+    outline: none;
+    border-color: #1a56db;
+    box-shadow: 0 0 0 3px rgba(26,86,219,0.12);
+  }
+
+  /* ===== ADD ROW BUTTON ===== */
+  #add-row-btn {
+    background: none;
+    border: 1.5px dashed #1a56db;
+    color: #1a56db;
+    border-radius: 6px;
+    padding: 6px 18px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #add-row-btn:hover { background: #eff6ff; }
+
+  /* ===== DELETE ROW BUTTON ===== */
+  .del-row-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .del-row-btn:hover { background: #fee2e2; }
+
+  /* ===== TAX SUMMARY ===== */
+  .tax-summary {
+    margin-left: auto;
+    width: 300px;
+    margin-bottom: 28px;
+  }
+
+  .tax-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+  }
+
+  .tax-row.hidden { display: none; }
+  .tax-row.total-row {
+    background: #1a56db;
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    border-radius: 0 0 6px 6px;
+    border-bottom: none;
+  }
+
+  .tax-row-label { color: #4b5563; }
+  .tax-row.total-row .tax-row-label { color: #fff; }
+  .tax-row-value { font-weight: 600; }
+
+  /* ===== NOTES SECTION ===== */
+  .notes-section {
+    margin-bottom: 0;
+  }
+
+  /* ===== MODAL ===== */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.hidden { display: none; }
+
+  .modal-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px 32px;
+    width: 420px;
+    max-width: 95vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #1a1a2e;
+  }
+
+  .modal-field {
+    margin-bottom: 14px;
+  }
+
+  .modal-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .modal-btn-row {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .modal-btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: opacity 0.15s;
+  }
+  .modal-btn:hover { opacity: 0.85; }
+  .modal-btn-primary { background: #1a56db; color: #fff; }
+  .modal-btn-danger  { background: #ef4444; color: #fff; }
+  .modal-btn-cancel  { background: #f3f4f6; color: #374151; }
+
+  .template-list {
+    list-style: none;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+
+  .template-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .template-list li:last-child { border-bottom: none; }
+  .template-list li:hover { background: #f0f7ff; }
+
+  .template-list li.selected { background: #dbeafe; }
+
+  .tpl-name { font-weight: 600; font-size: 13px; color: #1a1a2e; }
+  .tpl-del-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .tpl-del-btn:hover { background: #fee2e2; }
+
+  .empty-msg { padding: 16px; text-align: center; color: #9ca3af; font-size: 13px; }
+
+  /* ===== PRINT STYLES ===== */
+  @media print {
+    body { background: #fff; }
+
+    #op-bar { display: none !important; }
+    #add-row-btn { display: none !important; }
+    .del-row-btn { display: none !important; }
+    .modal-overlay { display: none !important; }
+    .col-del { display: none !important; }
+
+    #invoice-wrap {
+      margin: 0;
+      padding: 0;
+    }
+
+    #invoice {
+      box-shadow: none;
+      border-radius: 0;
+      padding: 20mm 18mm;
+      max-width: 210mm;
+      margin: 0 auto;
+    }
+
+    .inv-input, .inv-select, .inv-textarea, .honorific-select {
+      border: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      padding: 0 !important;
+      resize: none;
+    }
+
+    select.inv-select { appearance: none; -webkit-appearance: none; }
+    select.honorific-select { appearance: none; -webkit-appearance: none; }
+
+    #items-table th:last-child { display: none; }
+
+    .print-hide { display: none !important; }
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== OPERATION BAR ===== -->
+<div id="op-bar">
+  <h1>請求書発行アプリ</h1>
+  <button class="op-btn btn-save"  onclick="openSaveModal()">テンプレ保存</button>
+  <button class="op-btn btn-load"  onclick="openLoadModal()">テンプレ読込</button>
+  <button class="op-btn btn-print" onclick="window.print()">印刷 / PDF</button>
+</div>
+
+<!-- ===== INVOICE WRAPPER ===== -->
+<div id="invoice-wrap">
+<div id="invoice">
+
+  <!-- TITLE ROW -->
+  <div class="invoice-title-row">
+    <div class="invoice-main-title">請 求 書</div>
+    <div class="invoice-meta">
+      <div class="meta-row">
+        <span class="meta-label">請求 No.</span>
+        <input type="text" id="inv-no" class="inv-input" style="width:130px;" placeholder="2024-001">
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">請求日</span>
+        <input type="date" id="inv-date" class="inv-input" style="width:150px;">
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">お支払期限</span>
+        <input type="date" id="inv-due" class="inv-input" style="width:150px;">
+      </div>
+    </div>
+  </div>
+
+  <!-- PARTIES -->
+  <div class="parties">
+    <!-- CLIENT -->
+    <div class="party-box client">
+      <div class="party-label">請求先</div>
+      <div class="client-name-row">
+        <input type="text" id="client-name" class="inv-input" placeholder="株式会社〇〇" style="flex:1;">
+        <select id="client-honorific" class="honorific-select">
+          <option>御中</option>
+          <option>様</option>
+          <option>ご担当者様</option>
+        </select>
+      </div>
+      <textarea id="client-detail" class="inv-textarea" rows="3" placeholder="部署名・担当者名など（任意）" style="margin-top:8px;"></textarea>
+    </div>
+
+    <!-- SENDER -->
+    <div class="party-box sender">
+      <div class="party-label">自分の情報</div>
+      <input type="text" id="sender-name" class="inv-input" placeholder="会社名 / 氏名" style="margin-bottom:5px; text-align:right;">
+      <input type="text" id="sender-zip"  class="inv-input" placeholder="〒000-0000" style="margin-bottom:5px; text-align:right;">
+      <input type="text" id="sender-addr" class="inv-input" placeholder="住所" style="margin-bottom:5px; text-align:right;">
+      <input type="text" id="sender-tel"  class="inv-input" placeholder="TEL" style="margin-bottom:5px; text-align:right;">
+      <input type="text" id="sender-mail" class="inv-input" placeholder="メールアドレス" style="text-align:right;">
+    </div>
+  </div>
+
+  <!-- SUBJECT / TOTAL BOX -->
+  <div class="subject-total-box">
+    <div class="subject-row">
+      <span class="subject-label">件名</span>
+      <input type="text" id="inv-subject" class="inv-input" placeholder="件名を入力してください" style="flex:1;">
+    </div>
+    <p class="tagline">下記の通り、ご請求申し上げます。</p>
+    <div class="total-display-row">
+      <span class="grand-total-label">ご請求金額</span>
+      <span class="grand-total-amount" id="display-total">¥ 0</span>
+    </div>
+    <div class="transfer-row">
+      <span class="transfer-label">お振込先</span>
+      <textarea id="inv-bank" class="inv-textarea" rows="2" placeholder="〇〇銀行 〇〇支店 普通 0000000 名義人名" style="flex:1;"></textarea>
+    </div>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <div class="section-title">明細</div>
+  <table id="items-table">
+    <thead>
+      <tr>
+        <th class="col-no">No</th>
+        <th class="col-item">項目</th>
+        <th class="col-qty">数量</th>
+        <th class="col-price">単価</th>
+        <th class="col-taxtype">税区分</th>
+        <th class="col-taxrate">税率</th>
+        <th class="col-amount">金額</th>
+        <th class="col-del"></th>
+      </tr>
+    </thead>
+    <tbody id="items-body"></tbody>
+  </table>
+  <button id="add-row-btn" onclick="addRow()">＋ 行を追加</button>
+
+  <!-- TAX SUMMARY -->
+  <div class="tax-summary" style="margin-top:18px;">
+    <div class="tax-row" id="row-subtotal">
+      <span class="tax-row-label">小計</span>
+      <span class="tax-row-value" id="val-subtotal">¥ 0</span>
+    </div>
+    <div class="tax-row hidden" id="row-tax10">
+      <span class="tax-row-label">消費税（10%）</span>
+      <span class="tax-row-value" id="val-tax10">¥ 0</span>
+    </div>
+    <div class="tax-row hidden" id="row-tax8">
+      <span class="tax-row-label">消費税（8%）</span>
+      <span class="tax-row-value" id="val-tax8">¥ 0</span>
+    </div>
+    <div class="tax-row total-row">
+      <span class="tax-row-label">合　計</span>
+      <span class="tax-row-value" id="val-total">¥ 0</span>
+    </div>
+  </div>
+
+  <!-- NOTES -->
+  <div class="notes-section">
+    <div class="section-title">備考</div>
+    <textarea id="inv-notes" class="inv-textarea" rows="4" placeholder="備考・振込手数料等についてご記入ください"></textarea>
+  </div>
+
+</div><!-- /#invoice -->
+</div><!-- /#invoice-wrap -->
+
+<!-- ===== SAVE MODAL ===== -->
+<div class="modal-overlay hidden" id="save-modal">
+  <div class="modal-box">
+    <div class="modal-title">テンプレートとして保存</div>
+    <div class="modal-field">
+      <label class="modal-label">テンプレート名</label>
+      <input type="text" id="tpl-save-name" class="inv-input" placeholder="例: 株式会社〇〇向け">
+    </div>
+    <p style="font-size:12px; color:#6b7280;">保存対象: 自分の情報・請求先・振込先</p>
+    <div class="modal-btn-row">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('save-modal')">キャンセル</button>
+      <button class="modal-btn modal-btn-primary" onclick="saveTemplate()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOAD MODAL ===== -->
+<div class="modal-overlay hidden" id="load-modal">
+  <div class="modal-box">
+    <div class="modal-title">テンプレートを読み込む</div>
+    <ul class="template-list" id="tpl-list"></ul>
+    <div class="modal-btn-row">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal('load-modal')">キャンセル</button>
+      <button class="modal-btn modal-btn-primary" onclick="loadTemplate()">読み込む</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+//  STATE
+// =========================================================
+let rowCount = 0;
+let selectedTplIndex = -1;
+
+// =========================================================
+//  INIT
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Set today's date as default
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('inv-date').value = today;
+
+  // Default due date: end of next month
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate());
+  document.getElementById('inv-due').value = d.toISOString().slice(0, 10);
+
+  // Add initial row
+  addRow();
+  addRow();
+  addRow();
+});
+
+// =========================================================
+//  ROW MANAGEMENT
+// =========================================================
+function addRow() {
+  rowCount++;
+  const tbody = document.getElementById('items-body');
+  const tr = document.createElement('tr');
+  tr.id = `row-${rowCount}`;
+  tr.innerHTML = `
+    <td>${rowCount}</td>
+    <td><input type="text" class="inv-input item-name" placeholder="項目名"></td>
+    <td><input type="number" class="inv-input item-qty" value="1" min="0" step="1" oninput="recalc()"></td>
+    <td><input type="number" class="inv-input item-price" value="" min="0" step="1" placeholder="0" oninput="recalc()"></td>
+    <td>
+      <select class="inv-select item-taxtype" onchange="onTaxTypeChange(this); recalc();">
+        <option value="ex">税抜</option>
+        <option value="in">税込</option>
+        <option value="free">非課税</option>
+      </select>
+    </td>
+    <td>
+      <select class="inv-select item-taxrate" onchange="recalc()">
+        <option value="0.10">10%</option>
+        <option value="0.08">8%</option>
+        <option value="0">0%</option>
+      </select>
+    </td>
+    <td class="td-amount item-amount">¥ 0</td>
+    <td class="col-del"><button class="del-row-btn" onclick="deleteRow('row-${rowCount}')" title="削除">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  recalc();
+}
+
+function deleteRow(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+  renumberRows();
+  recalc();
+}
+
+function renumberRows() {
+  const rows = document.querySelectorAll('#items-body tr');
+  rows.forEach((tr, i) => {
+    tr.cells[0].textContent = i + 1;
+  });
+}
+
+function onTaxTypeChange(sel) {
+  const row = sel.closest('tr');
+  const rateSelect = row.querySelector('.item-taxrate');
+  rateSelect.disabled = sel.value === 'free';
+}
+
+// =========================================================
+//  CALCULATION
+// =========================================================
+function recalc() {
+  const rows = document.querySelectorAll('#items-body tr');
+  let subtotal = 0;   // 税抜ベースの小計（税抜金額 + 非課税金額）
+  let tax10 = 0;
+  let tax8  = 0;
+  let total = 0;
+
+  rows.forEach(tr => {
+    const qty      = parseFloat(tr.querySelector('.item-qty').value)   || 0;
+    const price    = parseFloat(tr.querySelector('.item-price').value) || 0;
+    const taxType  = tr.querySelector('.item-taxtype').value;
+    const taxRate  = parseFloat(tr.querySelector('.item-taxrate').value);
+    const amountEl = tr.querySelector('.item-amount');
+
+    const lineAmount = qty * price;
+
+    let lineTax = 0;
+    let lineTotal = 0;
+
+    if (taxType === 'ex') {
+      // 税抜: 金額 = 数量×単価, 消費税は別途
+      lineTax   = Math.floor(lineAmount * taxRate);
+      lineTotal = lineAmount + lineTax;
+      subtotal += lineAmount;
+    } else if (taxType === 'in') {
+      // 税込: 金額表示は数量×単価, 内税を消費税欄に表示
+      lineTax   = Math.floor(lineAmount - lineAmount / (1 + taxRate));
+      lineTotal = lineAmount;
+      subtotal += lineAmount - lineTax; // 税抜相当を小計に
+    } else {
+      // 非課税
+      lineTotal = lineAmount;
+      subtotal += lineAmount;
+    }
+
+    if (taxType !== 'free') {
+      if (taxRate === 0.10) tax10 += lineTax;
+      if (taxRate === 0.08) tax8  += lineTax;
+    }
+
+    total += lineTotal;
+
+    amountEl.textContent = formatYen(lineAmount);
+  });
+
+  // Update row amounts display
+  document.getElementById('val-subtotal').textContent = formatYen(subtotal);
+
+  const t10row = document.getElementById('row-tax10');
+  const t8row  = document.getElementById('row-tax8');
+
+  if (tax10 > 0) {
+    t10row.classList.remove('hidden');
+    document.getElementById('val-tax10').textContent = formatYen(tax10);
+  } else {
+    t10row.classList.add('hidden');
+  }
+
+  if (tax8 > 0) {
+    t8row.classList.remove('hidden');
+    document.getElementById('val-tax8').textContent = formatYen(tax8);
+  } else {
+    t8row.classList.add('hidden');
+  }
+
+  document.getElementById('val-total').textContent = formatYen(total);
+  document.getElementById('display-total').textContent = formatYen(total);
+}
+
+function formatYen(n) {
+  return '¥ ' + Math.round(n).toLocaleString('ja-JP');
+}
+
+// =========================================================
+//  TEMPLATE MANAGEMENT
+// =========================================================
+const STORAGE_KEY = 'invoice_templates_v1';
+
+function getTemplates() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveTemplates(tpls) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tpls));
+}
+
+function openSaveModal() {
+  document.getElementById('tpl-save-name').value = document.getElementById('client-name').value || '';
+  document.getElementById('save-modal').classList.remove('hidden');
+  document.getElementById('tpl-save-name').focus();
+}
+
+function saveTemplate() {
+  const name = document.getElementById('tpl-save-name').value.trim();
+  if (!name) { alert('テンプレート名を入力してください。'); return; }
+
+  const data = {
+    name,
+    senderName: document.getElementById('sender-name').value,
+    senderZip:  document.getElementById('sender-zip').value,
+    senderAddr: document.getElementById('sender-addr').value,
+    senderTel:  document.getElementById('sender-tel').value,
+    senderMail: document.getElementById('sender-mail').value,
+    clientName: document.getElementById('client-name').value,
+    clientHon:  document.getElementById('client-honorific').value,
+    clientDetail: document.getElementById('client-detail').value,
+    bank:       document.getElementById('inv-bank').value,
+  };
+
+  const tpls = getTemplates();
+  const existing = tpls.findIndex(t => t.name === name);
+  if (existing >= 0) {
+    if (!confirm(`「${name}」は既に存在します。上書きしますか？`)) return;
+    tpls[existing] = data;
+  } else {
+    tpls.push(data);
+  }
+
+  saveTemplates(tpls);
+  closeModal('save-modal');
+  alert(`「${name}」を保存しました。`);
+}
+
+function openLoadModal() {
+  selectedTplIndex = -1;
+  renderTemplateList();
+  document.getElementById('load-modal').classList.remove('hidden');
+}
+
+function renderTemplateList() {
+  const tpls = getTemplates();
+  const ul = document.getElementById('tpl-list');
+  ul.innerHTML = '';
+
+  if (tpls.length === 0) {
+    ul.innerHTML = '<li class="empty-msg">保存済みのテンプレートはありません</li>';
+    return;
+  }
+
+  tpls.forEach((tpl, i) => {
+    const li = document.createElement('li');
+    li.dataset.index = i;
+    li.innerHTML = `<span class="tpl-name">${escapeHtml(tpl.name)}</span>
+      <button class="tpl-del-btn" onclick="deleteTemplate(event, ${i})">×</button>`;
+    li.addEventListener('click', () => {
+      document.querySelectorAll('#tpl-list li').forEach(el => el.classList.remove('selected'));
+      li.classList.add('selected');
+      selectedTplIndex = i;
+    });
+    ul.appendChild(li);
+  });
+}
+
+function deleteTemplate(e, index) {
+  e.stopPropagation();
+  const tpls = getTemplates();
+  if (!confirm(`「${tpls[index].name}」を削除しますか？`)) return;
+  tpls.splice(index, 1);
+  saveTemplates(tpls);
+  selectedTplIndex = -1;
+  renderTemplateList();
+}
+
+function loadTemplate() {
+  if (selectedTplIndex < 0) { alert('テンプレートを選択してください。'); return; }
+  const tpls = getTemplates();
+  const tpl = tpls[selectedTplIndex];
+  if (!tpl) return;
+
+  document.getElementById('sender-name').value   = tpl.senderName   || '';
+  document.getElementById('sender-zip').value    = tpl.senderZip    || '';
+  document.getElementById('sender-addr').value   = tpl.senderAddr   || '';
+  document.getElementById('sender-tel').value    = tpl.senderTel    || '';
+  document.getElementById('sender-mail').value   = tpl.senderMail   || '';
+  document.getElementById('client-name').value   = tpl.clientName   || '';
+  document.getElementById('client-honorific').value = tpl.clientHon || '御中';
+  document.getElementById('client-detail').value = tpl.clientDetail || '';
+  document.getElementById('inv-bank').value      = tpl.bank         || '';
+
+  closeModal('load-modal');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.add('hidden');
+  });
+});
+
+// =========================================================
+//  PRINT: 空フィールドを印刷時に非表示
+// =========================================================
+window.addEventListener('beforeprint', () => {
+  // 部署名・担当者名欄が空なら非表示
+  const clientDetail = document.getElementById('client-detail');
+  if (!clientDetail.value.trim()) clientDetail.classList.add('print-hide');
+
+  // 備考欄が空なら備考セクションごと非表示
+  const notes = document.getElementById('inv-notes');
+  const notesSection = notes.closest('.notes-section');
+  if (!notes.value.trim()) notesSection.classList.add('print-hide');
+});
+
+window.addEventListener('afterprint', () => {
+  document.getElementById('client-detail').classList.remove('print-hide');
+  document.getElementById('inv-notes').closest('.notes-section').classList.remove('print-hide');
+});
+
+// =========================================================
+//  UTILITY
+// =========================================================
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+
+</body>
+</html>

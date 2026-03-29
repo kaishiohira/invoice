@@ -266,6 +266,16 @@
   .col-amount  { width: 100px; text-align: right; }
   .col-del     { width: 36px; text-align: center; }
 
+  textarea.item-name {
+    resize: none;
+    overflow: hidden;
+    min-height: 28px;
+    line-height: 1.4;
+    padding: 4px 8px;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
   .td-amount {
     text-align: right;
     font-weight: 600;
@@ -523,6 +533,13 @@
       resize: none;
     }
 
+    textarea.item-name {
+      white-space: pre-wrap !important;
+      word-break: break-all !important;
+      overflow: visible !important;
+      height: auto !important;
+    }
+
     select.inv-select { appearance: none; -webkit-appearance: none; }
     select.honorific-select { appearance: none; -webkit-appearance: none; }
 
@@ -727,7 +744,7 @@ function addRow() {
   tr.id = `row-${rowCount}`;
   tr.innerHTML = `
     <td>${rowCount}</td>
-    <td><input type="text" class="inv-input item-name" placeholder="項目名"></td>
+    <td><textarea class="inv-input item-name" rows="1" placeholder="項目名" oninput="autoResize(this)"></textarea></td>
     <td><input type="number" class="inv-input item-qty" value="1" min="0" step="1" oninput="recalc()"></td>
     <td><input type="number" class="inv-input item-price" value="" min="0" step="1" placeholder="0" oninput="recalc()"></td>
     <td>
@@ -990,6 +1007,11 @@ window.addEventListener('afterprint', () => {
 // =========================================================
 //  UTILITY
 // =========================================================
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
 function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
